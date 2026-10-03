@@ -1,0 +1,222 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TEAM TITAN - SDV Simulation</title>
+<style>
+:root{--bg:#0a0f1a;--c:#121a2b;--l:#22304a;--cy:#22d3ee;--g:#22c55e;--y:#facc15;--r:#ef4444;--t:#e6edf7;--m:#8a9bb8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px system-ui,Segoe UI,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 16px;background:#0d1424;border-bottom:1px solid var(--l)}
+h1{font-size:16px;margin:0;color:var(--cy);letter-spacing:1.5px}h3{margin:0 0 8px;font-size:12px;color:var(--cy);letter-spacing:1px}
+button{background:var(--c);color:var(--t);border:1px solid var(--l);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+button:hover{border-color:var(--cy)}button.on{background:var(--cy);color:#001018;font-weight:600}button.act{border-color:var(--r);color:var(--r)}
+main{padding:12px;max-width:1500px;margin:auto}.tab{display:none}.tab.show{display:block}
+.p{background:var(--c);border:1px solid var(--l);border-radius:10px;padding:12px}.g{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));margin-bottom:10px}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.kv{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1a2640}.kv span{color:var(--m)}.kv b{font-variant-numeric:tabular-nums}
+.big{font-size:56px;font-weight:700;line-height:1}.u{font-size:14px;color:var(--m)}.st{display:inline-block;padding:6px 14px;border-radius:20px;font-weight:700;background:#1a2640;border:1px solid var(--cy)}
+.s-READY,.s-DRIVING{color:var(--g)}.s-FAULT{color:var(--r);border-color:var(--r)}.s-CHARGING{color:var(--cy)}.s-BRAKING,.s-INITIALIZING,.s-SHUTDOWN{color:var(--y)}
+.bar{height:8px;background:#1a2640;border-radius:4px;overflow:hidden;margin:4px 0}.bar i{display:block;height:100%;background:var(--cy);width:0}
+input[type=range]{width:100%}.ok{color:var(--g)}.w{color:var(--y)}.f{color:var(--r)}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:4px}.nd{padding:6px 8px;border:1px solid var(--l);border-radius:6px;text-align:center;font-size:11px;min-width:70px;color:var(--m);transition:.2s}
+.nd b{display:block;color:var(--t);font-size:12px}.nd.on{border-color:var(--cy);color:var(--cy);box-shadow:0 0 8px #22d3ee66}.nd.pulse{border-color:var(--g);box-shadow:0 0 10px #22c55e88}
+.ar{color:var(--m)}.ar.on{color:var(--cy);animation:bl .6s infinite}@keyframes bl{50%{opacity:.2}}
+.log{font:12px ui-monospace,Consolas,monospace;max-height:220px;overflow:auto}.log div{padding:2px 0;border-bottom:1px solid #16213a}
+.bus{height:6px;border-radius:3px;margin:10px 0;background:repeating-linear-gradient(90deg,var(--cy) 0 12px,#12304a 12px 24px);background-size:24px;animation:mv 1s linear infinite}.bus.off{animation:none;background:var(--r)}@keyframes mv{to{background-position:24px 0}}
+pre{font:11px ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:0;max-height:420px;overflow:auto}table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px 6px;border-bottom:1px solid #1a2640;text-align:left}th{color:var(--m)}
+.note{color:var(--m);font-size:12px}#demo{display:none;position:fixed;inset:0;background:var(--bg);z-index:9;padding:20px;overflow:auto}#demo button{font-size:22px;padding:22px 10px}.dg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+</style></head><body>
+<header><h1>TEAM TITAN · SOFTWARE-DEFINED EV</h1><span class="note">SIMULATED - software-in-the-loop prototype</span>
+<nav class="row" id="nav" style="margin:0 0 0 auto"></nav><button onclick="demo(1)">DEMO MODE</button></header>
+<main>
+<section class="tab show" id="t0">
+<div class="g">
+<div class="p"><h3>DRIVER DASHBOARD</h3><span class="st" id="stb" data-k="state">OFF</span>
+<div style="margin:10px 0"><span class="big" data-k="speed">0</span><span class="u"> km/h</span></div>
+<div class="kv"><span>Battery SOC</span><b><span data-k="soc"></span>%</b></div><div class="bar"><i data-w="soc"></i></div>
+<div class="kv"><span>SIMULATED ESTIMATED RANGE</span><b><span data-k="range"></span> km</b></div>
+<div class="kv"><span>Driving mode</span><b data-k="mode"></b></div><div class="kv"><span>Warning status</span><b data-k="warn"></b></div>
+<div class="kv"><span>Regenerative braking</span><b data-k="regen"></b></div><div class="kv"><span>Charging</span><b data-k="chg"></b></div></div>
+<div class="p"><h3>DRIVER CONTROLS</h3><div class="row"><button onclick="start()">START</button><button onclick="stop()">STOP</button><button onclick="toggleCharge()">CHARGE / STOP CHARGE</button><button onclick="clearFault()">CLEAR FAULT</button><button onclick="resetAll()">RESET VEHICLE</button></div>
+<div class="row" id="modes"></div>
+Accelerator <b data-k="acc"></b>%<input type="range" id="acc" min="0" max="100" value="0" oninput="S.acc=+this.value">
+Brake <b data-k="brk"></b>%<input type="range" id="brk" min="0" max="100" value="0" oninput="S.brk=+this.value">
+<h3 style="margin-top:10px">SCENARIOS</h3><div class="row" id="scn"></div></div>
+<div class="p"><h3>POWERTRAIN READOUT</h3>
+<div class="kv"><span>Battery voltage</span><b><span data-k="volt"></span> V</b></div><div class="kv"><span>Battery current (+dis / -chg)</span><b><span data-k="cur"></span> A</b></div>
+<div class="kv"><span>Motor RPM</span><b data-k="rpm"></b></div><div class="kv"><span>Motor power (+drive / -regen)</span><b><span data-k="pw"></span> kW</b></div>
+<div class="kv"><span>Motor temperature</span><b><span data-k="tm"></span> °C</b></div><div class="kv"><span>Controller temperature</span><b><span data-k="tc"></span> °C</b></div>
+<div class="kv"><span>Battery temperature</span><b><span data-k="tb"></span> °C</b></div><div class="kv"><span>Brake position</span><b><span data-k="brk"></span>%</b></div>
+<h3 style="margin-top:10px">ACTIVE WARNINGS / PROTECTIVE ACTIONS</h3><div id="warns" class="log"></div></div></div>
+<div class="g"><div class="p" style="grid-column:1/-1"><h3>CONTROL CHAIN (live): DRIVER INPUT → VCU → ENERGY MGMT → MOTOR CONTROLLER → MOTOR → SPEED</h3><div class="chain" id="c1"></div>
+<h3 style="margin-top:12px">ENERGY FLOW (EMS decision: <span data-k="flow"></span>)</h3><div class="chain" id="c2"></div></div></div>
+<div class="g"><div class="p"><h3>VCU</h3><div id="m-vcu"></div></div><div class="p"><h3>BMS</h3><div id="m-bms"></div></div><div class="p"><h3>MOTOR CONTROLLER / MOTOR</h3><div id="m-mc"></div></div>
+<div class="p"><h3>EVENT LOG</h3><div class="log" id="ev"></div></div></div></section>
+
+<section class="tab" id="t1"><div class="g"><div class="p"><h3>FAULT SIMULATION LAB</h3><div class="row" id="fl"></div><button onclick="clearInj()">CLEAR ALL INJECTED FAULTS</button>
+<p class="note">Each button changes the simulated condition. The diagnostic engine detects it from sensor data. Then press CLEAR FAULT on the dashboard once the condition is gone.</p></div>
+<div class="p"><h3>PROTECTIVE ACTIONS</h3><div id="prot" class="log"></div><h3 style="margin-top:10px">SENSORS</h3><table id="sens"></table></div></div>
+<div class="p"><h3>FAULT RESPONSE PIPELINE</h3><div class="chain" id="pipe"></div></div></section>
+
+<section class="tab" id="t2"><div class="p"><h3>TECHNICIAN VIEW</h3><div id="tech"></div></div></section>
+
+<section class="tab" id="t3"><div class="g"><div class="p"><h3>RAW MODULE VALUES</h3><pre id="raw"></pre></div>
+<div class="p"><h3>SIMULATED VEHICLE COMMUNICATION LOG</h3><div class="log" id="bl"></div><h3 style="margin-top:10px">EVENT LOG</h3><div class="log" id="ev2"></div></div></div></section>
+
+<section class="tab" id="t4"><div class="p"><h3>SYSTEM ARCHITECTURE (every block exists in this simulation)</h3>
+<div class="chain"><div class="nd on"><b>DRIVER</b></div><span class="ar on">→</span><div class="nd on"><b>DRIVER INTERFACE</b>Dashboard</div><span class="ar on">→</span><div class="nd on"><b>VCU</b></div><span class="ar on">→</span><div class="nd on"><b>BMS</b>→ Battery</div><div class="nd on"><b>MOTOR CTRL</b>→ Motor</div><div class="nd on"><b>ENERGY MGMT</b></div><span class="ar on">→</span><div class="nd on"><b>SENSORS</b></div><span class="ar on">→</span><div class="nd on"><b>DIAGNOSTIC ENGINE</b></div><span class="ar on">→</span><div class="nd on"><b>TECHNICIAN</b></div><div class="nd on"><b>CHARGER</b>→ BMS</div></div>
+<h3 style="margin-top:14px">SIMULATED VEHICLE COMMUNICATION BUS (live activity)</h3><div class="bus" id="busbar"></div><div class="chain" id="net"></div></div>
+<div class="p" style="margin-top:10px"><h3>MODULE RESPONSIBILITIES · INPUTS · OUTPUTS</h3><table><tr><th>Module</th><th>Responsibility</th><th>Inputs</th><th>Outputs</th></tr>
+<tr><td>VCU</td><td>Interprets driver demand, applies safety limits</td><td>Accel, brake, state, SOC, temps, faults</td><td>Torque cmd, enable, regen request, charge permission, warnings</td></tr>
+<tr><td>BMS</td><td>Monitors battery, integrates SOC</td><td>Power flow, battery temp</td><td>SOC, voltage, current, temp</td></tr>
+<tr><td>Motor Controller</td><td>Converts command to torque</td><td>Torque cmd, enable, regen, bus voltage</td><td>Torque, RPM, power, temps</td></tr>
+<tr><td>Energy Manager</td><td>Decides energy direction</td><td>Power, SOC, charger, faults</td><td>Flow mode, power limits</td></tr>
+<tr><td>Charger</td><td>Charges only when stopped</td><td>Charge permission</td><td>Charge current</td></tr>
+<tr><td>Diagnostic Engine</td><td>Rule-based fault detection (prototype codes E01-E08, not standard OEM codes)</td><td>Sensor values, comm status</td><td>Fault codes, technician info</td></tr></table>
+<p class="note">State machine: OFF → INITIALIZING → READY → DRIVING ⇄ BRAKING → READY · READY/OFF ⇄ CHARGING · any → FAULT (E01/E03/E05/E06) · STOP → SHUTDOWN → OFF.</p></div></section>
+
+<section class="tab" id="t5"><div class="p"><h3>FUTURE HARDWARE INTEGRATION</h3><p><b>Current prototype: software simulation.</b> <b>Future implementation: real controller/BMS data acquisition.</b></p>
+<div class="chain"><div class="nd"><b>REAL EV</b></div>→<div class="nd"><b>BMS / VCU / MOTOR CONTROLLER</b></div>→<div class="nd"><b>CAN / CAN FD / suitable interface</b></div>→<div class="nd"><b>CAN / USB / BLUETOOTH GATEWAY</b></div>→<div class="nd"><b>TEAM TITAN SOFTWARE</b></div>→<div class="nd"><b>DIAGNOSTIC ENGINE</b></div>→<div class="nd"><b>DASHBOARD / TECHNICIAN</b></div></div>
+<p class="note">This HTML file is not connected to a real vehicle. The simulation modules would be replaced by a gateway data source while the diagnostic and display layers stay the same.</p></div></section>
+</main>
+<div id="demo"><div class="row"><h1 style="font-size:24px">TEAM TITAN · DEMO MODE</h1><button onclick="demo(0)" style="margin-left:auto">EXIT DEMO</button></div>
+<div class="g"><div class="p"><span class="st" data-k="state"></span> <span class="big" data-k="speed"></span> km/h</div><div class="p">SOC <b data-k="soc"></b>% · Range <b data-k="range"></b> km · Regen <b data-k="regen"></b><br>Motor <b data-k="tm"></b>°C · Warning: <b data-k="warn"></b></div><div class="p"><div id="dcodes" class="f" style="font-size:18px"></div></div></div>
+<div class="dg"><button onclick="start()">1 · START</button><button onclick="setAcc(70);setBrk(0)">2 · ACCELERATE</button><button onclick="setAcc(0);setBrk(60)">3 · BRAKE</button><button onclick="setAcc(0);setBrk(0);toggleCharge()">4 · CHARGE</button><button onclick="inj('mo')">5 · MOTOR OVERHEAT</button><button onclick="inj('low')">6 · LOW BATTERY</button><button onclick="inj('comm')">7 · COMM FAILURE</button><button onclick="inj('tsen')">8 · SENSOR FAULT</button><button onclick="resetAll()">9 · RESET</button></div></div>
+<script>
+/* ===== TEAM TITAN SDV SIMULATION (software-in-the-loop). All values are simulated. ===== */
+const $=i=>document.getElementById(i),cl=(x,a,b)=>Math.min(b,Math.max(a,x));
+const MF={ECO:.6,NORMAL:.85,SPORT:1},RF={ECO:1.15,NORMAL:1,SPORT:.85},CRIT=['E01','E03','E05','E06'],TS=20; // TS = time-compression for SOC
+let S,codes=[],ev=[],bl=[],token=0,prevSet='';
+const ts=()=>new Date().toLocaleTimeString('en-GB'),has=c=>codes.some(x=>x.code===c);
+function log(t,c){ev.unshift({s:ts(),t,c:c||''});if(ev.length>60)ev.pop()}
+function bus(a,b,t){bl.unshift(ts()+'  '+a+' → '+b+': '+t);if(bl.length>40)bl.pop();S.act[a]=S.act[b]=3}
+function fresh(){return{state:'OFF',soc:80,v:0,rpm:0,tq:0,pw:0,cur:0,volt:360,tm:45,tc:40,tb:28,acc:0,brk:0,ea:0,eb:0,mode:'NORMAL',comm:true,chg:false,prevOn:false,
+ inj:{mo:0,co:0,low:0,tsen:0,wire:0,pedal:0,cfault:0,comm:0},initT:0,sdT:0,faultT:0,cmd:0,en:false,regen:false,reasons:[],flow:'IDLE',mc:'OFF',act:{},n:0,chgOK:true}}
+/* ---- VehicleState: finite state machine ---- */
+function fsm(){const s=S.state,crit=codes.some(c=>CRIT.includes(c.code));
+ if(crit&&!['OFF','INITIALIZING','SHUTDOWN','FAULT'].includes(s)){S.chg=false;S.state='FAULT';log('VEHICLE STATE → FAULT (motor disabled)','f');return}
+ if(s==='INITIALIZING'){S.initT+=.2;if(S.initT>=.6&&S.initT<.8)log('BMS ONLINE','ok');if(S.initT>=1.2&&S.initT<1.4)log('VCU ONLINE','ok');if(S.initT>=1.8&&S.initT<2)log('MOTOR CONTROLLER ONLINE','ok');
+  if(S.initT>=2.4){S.state='READY';log('VEHICLE READY','ok')}}
+ else if(s==='READY'&&S.ea>2&&!has('E04')){S.state='DRIVING';log('ACCELERATOR INPUT RECEIVED → DRIVING')}
+ else if(s==='DRIVING'){if(S.eb>5)S.state='BRAKING';else if(S.v<.5&&S.ea<2)S.state='READY'}
+ else if(s==='BRAKING'&&S.eb<=3)S.state=S.v>.5?'DRIVING':'READY';
+ else if(s==='SHUTDOWN'){S.sdT+=.2;if(S.v<.5&&S.sdT>1.5){S.state='OFF';log('VEHICLE OFF')}}}
+/* ---- SensorManager ---- */
+function sensors(){const f=S.inj;return{acc:S.ea,brk:S.eb,volt:S.volt,cur:S.cur,tb:f.wire?null:S.tb,tm:f.tsen?null:S.tm,tc:S.tc,rpm:S.rpm,spd:S.v}}
+/* ---- DiagnosticEngine (TEAM TITAN prototype codes, not OEM standards) ---- */
+function diagnose(sn){const o=[],a=(code,title,lv,det)=>o.push({code,title,lv,det});
+ if(sn.tc!==null&&sn.tc>85)a('E01','CONTROLLER OVER-TEMPERATURE','crit',`Controller temp = ${sn.tc.toFixed(0)}°C, threshold = 85°C`);
+ if(S.soc<20)a('E02','LOW BATTERY','warn',`SOC = ${S.soc.toFixed(1)}%, threshold = 20%`);
+ if(sn.tm!==null&&sn.tm>95)a('E03','MOTOR OVER-TEMPERATURE','crit',`Motor temp = ${sn.tm.toFixed(0)}°C, threshold = 95°C`);
+ if(S.ea>20&&S.eb>20)a('E04','PEDAL CONFLICT','warn',`Accelerator = ${S.ea}% and brake = ${S.eb}% (both > 20%)`);
+ if(!S.comm)a('E05','COMMUNICATION FAILURE','crit','Bus status = DISCONNECTED, VCU watchdog timeout');
+ if(S.inj.cfault)a('E06','MOTOR CONTROLLER FAULT','crit','Motor controller status = FAULT');
+ if(S.inj.tsen)a('E07','MOTOR TEMP SENSOR INVALID','warn','Signal out of range; motor temperature cannot be verified');
+ if(S.inj.wire)a('E08','SENSOR SIGNAL LOST','warn','Battery temperature sensor: no signal (open circuit)');
+ return o.sort((x,y)=>(y.lv==='crit')-(x.lv==='crit'))}
+const INFO={E01:[['Sustained high load','Cooling / heatsink problem','Temperature sensor or wiring issue'],['Inspect controller cooling','Check controller temperature sensor','Inspect sensor wiring','Review operating load']],
+E02:[['Battery discharged by driving','Charging not performed','SOC estimation drift'],['Charge the battery','Check BMS SOC reading vs measured voltage','Review recent energy use']],
+E03:[['Excessive motor load','Cooling problem','Temperature sensor issue','Wiring issue'],['Inspect motor cooling system','Check motor temperature sensor','Inspect sensor wiring','Check motor operating conditions']],
+E04:[['Pedal sensor implausible','Pedal wiring short','Driver pressing both pedals'],['Check accelerator & brake sensors','Inspect pedal wiring','Verify pedal calibration']],
+E05:[['Bus wiring open/shorted','Module not powered','Gateway/transceiver issue'],['Inspect bus wiring & connectors','Check module power supply','Check termination']],
+E06:[['Inverter internal fault','Power stage / gate-driver issue','Supply problem'],['Read controller status','Inspect controller power wiring','Check supply voltage','Consult controller manual']],
+E07:[['Sensor failed','Connector damaged','Signal out of range'],['Check motor temperature sensor','Inspect connector & wiring','Compare with reference measurement']],
+E08:[['Broken wire','Loose connector','Sensor supply loss'],['Inspect harness continuity','Check sensor connector','Verify sensor supply']]};
+/* ---- VCU: inputs → torque command / enable / regen / charge permission ---- */
+function vcu(){const r=[];let L=1,en=['READY','DRIVING','BRAKING'].includes(S.state);const sn=sensors();
+ if(S.state==='CHARGING')r.push('CHARGING: driving inhibited');if(S.state==='FAULT')r.push('FAULT STATE: motor disabled');
+ if(has('E04')){L=0;r.push('E04: pedal conflict → torque cut')}
+ if(S.soc<=1){L=0;r.push('SOC empty → motor disabled')}else if(S.soc<10){L=Math.min(L,.35);r.push('SOC < 10% → power limited to 35%')}else if(S.soc<20){L=Math.min(L,.7);r.push('SOC < 20% → power limited to 70%')}
+ if(sn.tm!==null&&sn.tm>85){L=Math.min(L,.5);r.push('Motor temp > 85°C → output limited 50%')}
+ if(sn.tc!==null&&sn.tc>75){L=Math.min(L,.5);r.push('Controller temp > 75°C → output limited 50%')}
+ if(has('E07')){L=Math.min(L,.5);r.push('E07: motor temp unverifiable → limp mode 50%')}
+ if(has('E08'))r.push('E08: battery temp signal lost → monitoring degraded');
+ if(!S.comm)r.push('E05: communication lost → safe state, motor disabled');
+ S.en=en;S.cmd=en?S.ea*L*MF[S.mode]:0;S.regen=en&&S.eb>5&&S.v>3&&S.soc<98;
+ S.mc=S.state==='OFF'?'OFF':S.inj.cfault?'FAULT':en?'READY':'DISABLED';
+ if(S.inj.cfault){S.cmd=0;S.regen=false;r.push('E06: controller fault → output disabled')}
+ S.chgOK=S.v<1&&['OFF','READY','CHARGING'].includes(S.state)&&!codes.some(c=>CRIT.includes(c.code));S.reasons=r}
+/* ---- Motor + vehicle dynamics + BMS + temperatures ---- */
+function plant(){const dt=.2,on=S.state!=='OFF';S.tq=S.cmd*1.8;
+ const a=.07*S.cmd-.06*S.v-(S.v>0?.2:0)-(S.v>0?S.eb*.12:0);S.v=cl(S.v+a*dt,0,140);S.rpm=S.v*35;
+ const mech=S.tq*S.rpm/9549/.92,rg=S.regen&&S.cmd<5?S.eb/100*S.v*.14:0,mp=mech-rg;S.pw=mp;
+ let P=mp+(on?.5:0);
+ if(S.chg){if(S.soc>=100){S.chg=false;S.state=S.prevOn?'READY':'OFF';log('CHARGING COMPLETE','ok')}else P=-30*(S.soc>90?.4:1)+.5}
+ const ocv=300+.75*S.soc;S.cur=cl(P*1000/ocv,-300,400);S.volt=ocv-S.cur*.08;
+ S.soc=cl(S.soc-P*dt*TS/3600/40*100,0,100);
+ if(S.inj.mo)S.tm+=6*dt;if(S.inj.co)S.tc+=5*dt;if(S.inj.low&&S.soc>4)S.soc=Math.max(4,S.soc-3*dt);
+ S.tm+=(.02*Math.abs(mp)-.03*(S.tm-35))*dt;S.tc+=(.012*Math.abs(mp)-.03*(S.tc-30))*dt;S.tb+=(.002*Math.abs(S.cur)-.02*(S.tb-28))*dt;
+ S.P=P}
+/* ---- EnergyManager ---- */
+function ems(){S.flow=S.chg?'CHARGER → BATTERY':S.pw<-.3?'MOTOR → BATTERY (REGEN)':S.pw>1?'BATTERY → MOTOR':'IDLE'}
+/* ---- Actions (every button changes the underlying simulation) ---- */
+function start(){if(S.state==='OFF'){S.state='INITIALIZING';S.initT=0;log('SYSTEM INITIALIZED')}else log('START ignored in state '+S.state,'w')}
+function stop(){if(S.state==='OFF')return;if(S.state==='CHARGING')return toggleCharge();S.state='SHUTDOWN';S.sdT=0;S.chg=false;log('STOP → SHUTDOWN','w')}
+function toggleCharge(){if(S.state==='CHARGING'){S.chg=false;S.state=S.prevOn?'READY':'OFF';log('CHARGING STOPPED','w');return}
+ if(!S.chgOK||S.chg){log('CHARGING DENIED: vehicle must be stopped and fault-free','f');return}
+ S.prevOn=S.state==='READY';S.chg=true;S.state='CHARGING';setAcc(0);log('CHARGING STARTED','ok')}
+function clearFault(){if(S.state!=='FAULT')return log('No fault state to clear','w');
+ if(codes.some(c=>CRIT.includes(c.code)))return log('Cannot clear: fault condition still active','f');S.state='READY';log('FAULT CLEARED','ok')}
+const NM={mo:'MOTOR OVERHEAT',co:'CONTROLLER OVERHEAT',low:'LOW BATTERY',tsen:'TEMPERATURE SENSOR FAULT',wire:'SENSOR WIRE FAULT',comm:'COMMUNICATION FAILURE',pedal:'PEDAL CONFLICT',cfault:'CONTROLLER FAULT'};
+function inj(k){S.inj[k]=S.inj[k]?0:1;S.comm=!S.inj.comm;log((S.inj[k]?'FAULT INJECTED: ':'INJECTION CLEARED: ')+NM[k],S.inj[k]?'f':'ok')}
+function clearInj(){Object.keys(S.inj).forEach(k=>S.inj[k]=0);S.comm=true;log('ALL INJECTED FAULTS CLEARED','ok')}
+function setAcc(v){S.acc=v;$('acc').value=v}function setBrk(v){S.brk=v;$('brk').value=v}
+function resetSim(){S=fresh();codes=[];prevSet='';setAcc(0);setBrk(0);bl=[];ev=[];log('VEHICLE RESET: OFF, SOC 80%, no faults')}
+function resetAll(){token++;resetSim()}
+function run(steps){const t=++token;let d=0;steps.forEach(([ms,fn])=>{d+=ms;setTimeout(()=>{if(t===token)fn()},d)})}
+const SC={'NORMAL DRIVE':[[0,resetSim],[200,start],[3500,()=>setAcc(45)],[10000,()=>setAcc(25)]],'ACCELERATION':[[0,resetSim],[200,start],[3500,()=>setAcc(90)]],
+'REGENERATIVE BRAKING':[[0,resetSim],[200,start],[3500,()=>setAcc(80)],[8000,()=>{setAcc(0);setBrk(50)}]],'CHARGING':[[0,resetSim],[100,()=>S.soc=45],[300,toggleCharge]],
+'LOW BATTERY':[[0,resetSim],[200,start],[3500,()=>inj('low')]],'MOTOR OVERHEAT':[[0,resetSim],[200,start],[3500,()=>setAcc(70)],[1500,()=>inj('mo')]],
+'COMMUNICATION FAILURE':[[0,resetSim],[200,start],[3500,()=>setAcc(40)],[4000,()=>inj('comm')]],'SENSOR FAULT':[[0,resetSim],[200,start],[3500,()=>inj('tsen')]]};
+/* ---- Main simulation loop (200 ms) ---- */
+function tick(){S.n++;S.ea=S.inj.pedal?Math.max(S.acc,60):S.acc;S.eb=S.inj.pedal?Math.max(S.brk,60):S.brk;S.comm=!S.inj.comm;
+ const sn=sensors();codes=diagnose(sn);const set=codes.map(c=>c.code).join();
+ if(set!==prevSet){const o=prevSet.split(','),n=set.split(',');codes.forEach(c=>{if(!o.includes(c.code)){log(c.code+' '+c.title+' DETECTED',c.lv==='crit'?'f':'w');bus('DIAGNOSTICS','DASHBOARD',c.code+' DETECTED')}});
+  o.forEach(c=>{if(c&&!n.includes(c))log(c+' CLEARED','ok')});prevSet=set}
+ fsm();vcu();plant();ems();
+ if(S.comm&&S.n%5===0&&S.state!=='OFF'){bus('VCU','MOTOR CTRL','TORQUE_CMD '+S.cmd.toFixed(0)+'%');bus('BMS','VCU','SOC '+S.soc.toFixed(0)+'%');bus('MOTOR CTRL','VCU','RPM '+S.rpm.toFixed(0));bus('SENSORS','DIAGNOSTICS',sn.tm===null?'MOTOR TEMP INVALID':'TEMP '+S.tm.toFixed(0)+'°C');if(S.chg)bus('CHARGER','BMS','CHG '+S.cur.toFixed(0)+'A')}
+ if(!S.comm&&S.n%10===0&&S.state!=='OFF'){bl.unshift(ts()+'  BUS TIMEOUT: no response from VCU ↔ Motor Controller');if(bl.length>40)bl.pop()}
+ for(const k in S.act)if(S.act[k]>0)S.act[k]--;
+ if(codes.length)S.faultT+=.2;else S.faultT=0;render(sn)}
+/* ---- Dashboard rendering ---- */
+let TABS=['DRIVER','FAULT LAB','TECHNICIAN','ENGINEERING','ARCHITECTURE','FUTURE HARDWARE'],ks,ws;
+function ch(el,list,act,live){$(el).innerHTML=list.map((n,i)=>`<div class="nd ${act(i)?'on':''} ${n[2]?'pulse':''}"><b>${n[0]}</b>${n[1]||''}</div>`+(i<list.length-1?`<span class="ar ${act(i)?'on':''}">→</span>`:'')).join('')}
+function render(sn){const crit=codes.some(c=>CRIT.includes(c.code)),w=crit?'FAULT':codes.length?'WARNING':'NONE';
+ const V={state:S.state,speed:S.v.toFixed(0),soc:S.soc.toFixed(1),range:(S.soc*1.6*RF[S.mode]).toFixed(0),mode:S.mode,warn:w,regen:S.regen&&S.pw<-.3?'REGEN ACTIVE':'OFF',chg:S.chg?'ACTIVE':'OFF',
+ acc:S.ea.toFixed(0),brk:S.eb.toFixed(0),volt:S.volt.toFixed(0),cur:S.cur.toFixed(0),rpm:S.rpm.toFixed(0),pw:S.pw.toFixed(1),tm:S.tm.toFixed(0),tc:S.tc.toFixed(0),tb:S.tb.toFixed(0),flow:S.flow};
+ ks.forEach(e=>{const v=V[e.dataset.k];if(v!==undefined)e.textContent=v});const W={soc:S.soc};ws.forEach(e=>e.style.width=W[e.dataset.w]+'%');
+ document.querySelectorAll('.st').forEach(e=>e.className='st s-'+S.state);
+ const col=w==='FAULT'?'f':w==='WARNING'?'w':'ok';document.querySelectorAll('[data-k=warn]').forEach(e=>e.className=col);
+ const kv=(a)=>a.map(x=>`<div class="kv"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
+ $('m-vcu').innerHTML=kv([['VCU STATUS',S.state==='OFF'||(S.state==='INITIALIZING'&&S.initT<1.2)?'OFF':'ACTIVE'],['Accelerator input',S.ea.toFixed(0)+'%'],['Brake input',S.eb.toFixed(0)+'%'],['Torque command',S.cmd.toFixed(0)+'%'],['Motor command',S.en&&!S.inj.cfault?'ENABLED':'DISABLED'],['Regen request',S.regen?'YES':'NO'],['Charge permission',S.chgOK?'YES':'NO'],['Driving state',S.state]]);
+ $('m-bms').innerHTML=kv([['BMS STATUS',S.state==='OFF'||(S.state==='INITIALIZING'&&S.initT<.6)?'OFF':'ACTIVE'],['SOC',S.soc.toFixed(1)+'%'],['Voltage',S.volt.toFixed(0)+' V'],['Current',S.cur.toFixed(0)+' A'],['Battery power',S.P.toFixed(1)+' kW'],['Temperature',sn.tb===null?'SIGNAL LOST':S.tb.toFixed(0)+' °C'],['Health',S.soc<10?'CRITICAL':S.soc<20?'LOW':'OK']]);
+ $('m-mc').innerHTML=kv([['Controller',S.mc],['Torque',S.tq.toFixed(0)+' Nm'],['RPM',S.rpm.toFixed(0)],['Power',S.pw.toFixed(1)+' kW'],['Motor temp',sn.tm===null?'INVALID':S.tm.toFixed(0)+' °C'],['Controller temp',S.tc.toFixed(0)+' °C'],['EMS flow',S.flow]]);
+ const drv=S.cmd>0||S.eb>5;
+ ch('c1',[['DRIVER','Input'],['PEDALS',`A${S.ea.toFixed(0)}% B${S.eb.toFixed(0)}%`],['VCU','Cmd '+S.cmd.toFixed(0)+'%'],['ENERGY MGMT',S.flow.split(' ')[0]],['MOTOR CTRL',S.mc],['MOTOR',S.rpm.toFixed(0)+' rpm'],['SPEED',S.v.toFixed(0)+' km/h']],i=>S.state!=='OFF'&&(drv||i<2&&S.state!=='OFF'&&false));
+ const L=S.chg?['CHARGER','BMS','BATTERY']:S.pw<-.3?['WHEELS','MOTOR','MOTOR CTRL','BMS','BATTERY']:['BATTERY','BMS','VCU','MOTOR CTRL','MOTOR','WHEELS'];
+ ch('c2',L.map(x=>[x]),()=>S.chg||Math.abs(S.pw)>.3);
+ const msgs=[...codes.map(c=>`<div class="${c.lv==='crit'?'f':'w'}">${c.code} — ${c.title}</div>`),...S.reasons.map(r=>`<div class="w">⚠ ${r}</div>`)];$('warns').innerHTML=msgs.join('')||'<div class="ok">No warnings</div>';
+ $('prot').innerHTML=S.reasons.map(r=>`<div>${r}</div>`).join('')||'<div class="ok">No protective action active</div>';
+ const lg=ev.map(e=>`<div class="${e.c}">${e.s} ${e.t}</div>`).join('');$('ev').innerHTML=lg;$('ev2').innerHTML=lg;$('bl').innerHTML=bl.map(x=>`<div>${x}</div>`).join('');
+ const st=(v,w,f)=>v===null?'INVALID':v>f?'FAULT':v>w?'WARNING':'NORMAL';
+ const R=[['Accelerator position',S.ea.toFixed(0)+' %',has('E04')?'IMPLAUSIBLE':'NORMAL'],['Brake position',S.eb.toFixed(0)+' %',has('E04')?'IMPLAUSIBLE':'NORMAL'],['Battery voltage',S.volt.toFixed(0)+' V','NORMAL'],['Battery current',S.cur.toFixed(0)+' A','NORMAL'],
+ ['Battery temperature',sn.tb===null?'--':S.tb.toFixed(0)+' °C',sn.tb===null?'SIGNAL LOST':'NORMAL'],['Motor temperature',sn.tm===null?'--':S.tm.toFixed(0)+' °C',st(sn.tm,85,95)],['Controller temperature',S.tc.toFixed(0)+' °C',st(sn.tc,75,85)],['Motor RPM',S.rpm.toFixed(0),'NORMAL'],['Vehicle speed',S.v.toFixed(0)+' km/h','NORMAL']];
+ $('sens').innerHTML='<tr><th>Sensor</th><th>Value</th><th>Status</th></tr>'+R.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="${r[2]==='NORMAL'?'ok':r[2]==='FAULT'?'f':'w'}">${r[2]}</td></tr>`).join('');
+ const any=Object.values(S.inj).some(x=>x),n=codes.length?Math.min(7,3+Math.floor(S.faultT/.5)):any?2:0;
+ ch('pipe',['FAULT INJECTION','SENSOR / VEHICLE DATA CHANGES','BMS / VCU / CONTROLLER DETECT','DIAGNOSTIC ENGINE','FAULT CODE: '+(codes[0]?codes[0].code:'--'),'DASHBOARD WARNING','TECHNICIAN INFORMATION'].map(x=>[x]),i=>i<n);
+ $('fl').querySelectorAll('button').forEach(b=>b.className=S.inj[b.dataset.k]?'act':'');
+ $('demo').querySelector('#dcodes').textContent=codes.map(c=>c.code+' '+c.title).join(' | ');
+ $('tech').innerHTML=codes.length?codes.map(c=>`<div class="p" style="margin-bottom:8px"><b class="${c.lv==='crit'?'f':'w'}" style="font-size:18px">${c.code} — ${c.title}</b> <span class="note">(TEAM TITAN prototype diagnostic code)</span>
+ <div class="kv"><span>Detected condition</span><b>${c.det}</b></div><div class="kv"><span>Severity</span><b>${c.lv==='crit'?'Fault: motor disabled':'Warning: output limited'}</b></div>
+ <h3 style="margin-top:8px">POSSIBLE CAUSES</h3><ul>${INFO[c.code][0].map(x=>'<li>'+x+'</li>').join('')}</ul><h3>RECOMMENDED DIAGNOSTIC CHECKS</h3><ol>${INFO[c.code][1].map(x=>'<li>'+x+'</li>').join('')}</ol>
+ <div class="note">These are recommended checks, not automatic repair instructions.</div></div>`).join(''):'<div class="ok">No active fault. All monitored values within limits.</div>';
+ $('raw').textContent=JSON.stringify({STATE:S.state,VCU:{acc:S.ea,brk:S.eb,torqueCmd:+S.cmd.toFixed(1),motorEnable:S.en,regen:S.regen,chargePermission:S.chgOK,reasons:S.reasons},BMS:{soc:+S.soc.toFixed(2),V:+S.volt.toFixed(1),I:+S.cur.toFixed(1),Tbat:+S.tb.toFixed(1),P_kW:+S.P.toFixed(2)},
+ MOTOR_CONTROLLER:{status:S.mc,torque_Nm:+S.tq.toFixed(1),Tctrl:+S.tc.toFixed(1)},MOTOR:{rpm:+S.rpm.toFixed(0),power_kW:+S.pw.toFixed(2),Tmotor:+S.tm.toFixed(1),speed:+S.v.toFixed(1)},ENERGY_FLOW:S.flow,COMMUNICATION:S.comm?'CONNECTED':'DISCONNECTED',FAULTS:codes.map(c=>c.code),SENSORS:sn,INJECTED:S.inj},null,1);
+ ['DASHBOARD','VCU','BMS','MOTOR CTRL','CHARGER','SENSORS','DIAGNOSTICS'].forEach((x,i)=>{const e=$('nd'+i);if(e)e.className='nd'+(S.act[x]>0?' pulse':S.comm?' on':'')});
+ $('busbar').className='bus'+(S.comm?'':' off')}
+/* ---- UI setup ---- */
+$('nav').innerHTML=TABS.map((t,i)=>`<button data-i="${i}" onclick="tab(${i})">${t}</button>`).join('');
+function tab(i){document.querySelectorAll('.tab').forEach((e,j)=>e.classList.toggle('show',i===j));document.querySelectorAll('#nav button').forEach((b,j)=>b.classList.toggle('on',i===j))}
+$('modes').innerHTML=['ECO','NORMAL','SPORT'].map(m=>`<button onclick="S.mode='${m}';log('DRIVING MODE → ${m}');document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on',b.textContent==='${m}'))" ${m==='NORMAL'?'class="on"':''}>${m}</button>`).join('');
+$('scn').innerHTML=Object.keys(SC).map(k=>`<button onclick="run(SC['${k}'])">${k}</button>`).join('');
+$('fl').innerHTML=Object.keys(NM).map(k=>`<button data-k="${k}" onclick="inj('${k}')">INJECT ${NM[k]}</button>`).join('');
+$('net').innerHTML=['DASHBOARD','VCU','BMS','MOTOR CTRL','CHARGER','SENSORS','DIAGNOSTICS'].map((x,i)=>`<div class="nd" id="nd${i}"><b>${x}</b></div>`).join('');
+function demo(on){$('demo').style.display=on?'block':'none'}
+tab(0);resetSim();ks=document.querySelectorAll('[data-k]');ws=document.querySelectorAll('[data-w]');
+document.querySelectorAll('#modes button').forEach(b=>b.addEventListener('click',()=>{}));setInterval(tick,200);
+</script></body></html>
